@@ -20,8 +20,6 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
-#include "touchsensing.h"
 #include "usb_device.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -37,6 +35,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+#define CLICK_REPORT_SIZE 8
+uint8_t click_report[CLICK_REPORT_SIZE] = {0};
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,19 +45,16 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-TSC_HandleTypeDef htsc;
 
-osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
+
+extern USBD_HandleTypeDef hUsbDeviceFS;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_TSC_Init(void);
-void StartDefaultTask(void const * argument);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -96,46 +93,24 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_TSC_Init();
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
-
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
-
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
-
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
-
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
-
-  /* Create the thread(s) */
-  /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
-
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
-
-  /* Start scheduler */
-  osKernelStart();
-  
-  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
+click_report[2] = 0x65; // send button press
+USBD_HID_SendReport(&hUsbDeviceFS, click_report, CLICK_REPORT_SIZE);
+HAL_Delay(50);
+
+click_report[2] = 0; // send button release
+USBD_HID_SendReport(&hUsbDeviceFS, click_report, CLICK_REPORT_SIZE);
+
+HAL_Delay(200);
 
     /* USER CODE BEGIN 3 */
   }
@@ -183,87 +158,39 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief TSC Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TSC_Init(void)
-{
-
-  /* USER CODE BEGIN TSC_Init 0 */
-
-  /* USER CODE END TSC_Init 0 */
-
-  /* USER CODE BEGIN TSC_Init 1 */
-
-  /* USER CODE END TSC_Init 1 */
-  /** Configure the TSC peripheral 
-  */
-  htsc.Instance = TSC;
-  htsc.Init.CTPulseHighLength = TSC_CTPH_2CYCLES;
-  htsc.Init.CTPulseLowLength = TSC_CTPL_2CYCLES;
-  htsc.Init.SpreadSpectrum = DISABLE;
-  htsc.Init.SpreadSpectrumDeviation = 1;
-  htsc.Init.SpreadSpectrumPrescaler = TSC_SS_PRESC_DIV1;
-  htsc.Init.PulseGeneratorPrescaler = TSC_PG_PRESC_DIV4;
-  htsc.Init.MaxCountValue = TSC_MCV_8191;
-  htsc.Init.IODefaultMode = TSC_IODEF_OUT_PP_LOW;
-  htsc.Init.SynchroPinPolarity = TSC_SYNC_POLARITY_FALLING;
-  htsc.Init.AcquisitionMode = TSC_ACQ_MODE_NORMAL;
-  htsc.Init.MaxCountInterrupt = DISABLE;
-  htsc.Init.ChannelIOs = TSC_GROUP1_IO4|TSC_GROUP2_IO4;
-  htsc.Init.ShieldIOs = 0;
-  htsc.Init.SamplingIOs = TSC_GROUP1_IO1|TSC_GROUP2_IO2;
-  if (HAL_TSC_Init(&htsc) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TSC_Init 2 */
-
-  /* USER CODE END TSC_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_8, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PB8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA1 PA2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
 /* USER CODE BEGIN 4 */
 
 /* USER CODE END 4 */
-
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used 
-  * @retval None
-  */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
-{
-  /* init code for TOUCHSENSING */
-  MX_TOUCHSENSING_Init();
-
-  /* init code for USB_DEVICE */
-  MX_USB_DEVICE_Init();
-
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
-  /* USER CODE END 5 */ 
-}
 
 /**
   * @brief  Period elapsed callback in non blocking mode

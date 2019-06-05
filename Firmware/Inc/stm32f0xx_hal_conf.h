@@ -55,7 +55,7 @@
 /*#define HAL_COMP_MODULE_ENABLED   */
 /*#define HAL_CRC_MODULE_ENABLED   */
 /*#define HAL_CRYP_MODULE_ENABLED   */
-#define HAL_TSC_MODULE_ENABLED
+/*#define HAL_TSC_MODULE_ENABLED   */
 /*#define HAL_DAC_MODULE_ENABLED   */
 /*#define HAL_I2S_MODULE_ENABLED   */
 /*#define HAL_IWDG_MODULE_ENABLED   */
